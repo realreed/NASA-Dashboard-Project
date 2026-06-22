@@ -43,6 +43,7 @@ reticle_angleRotation = 1
 boot_percent = 0
 last_update_time = 0
 update_delay = 2000
+quickInfotoggle = False
 
 last_button_press_time = 0
 debounce_cooldown = 10
@@ -63,14 +64,18 @@ EARTH_DIAMETER_KM = 12742
 
 font = pygame.font.SysFont("OCR A Extended", 20)
 LogFont = pygame.font.SysFont("OCR A Extended", 15)
+NEOfont = pygame.font.SysFont("OCR A Extended", 10)
 
 Earth_Text = font.render("EARTH OBSERVATION CENTER", True, (0, 150, 200))
 Tracking_text = font.render(f"CURRENTLY TRACKING {total_asteroids} NEOS", True, (0, 150, 200))
 
 btn_slow = pygame.Rect(760, 630, 140, 40)
 btn_fast = pygame.Rect(920, 630, 140, 40)
+btn_pause = pygame.Rect(760, 690, 140, 40)
+btn_play = pygame.Rect(920, 690, 140, 40)
 btn_orbit = pygame.Rect(1080, 630, 160, 40)
 btn_export = pygame.Rect(790, 400, 220, 50)
+btn_info = pygame.Rect(1080, 690, 160, 40)
 
 
 pygame.draw.circle(reticle_surf, (255, 50, 50), (30, 30), 12, 1)
@@ -119,7 +124,7 @@ for day in asteroids:
         z = random.uniform(-1, 1)
         orbit_radius = 140 + normalized_Distance * 180
         asteroidsPoints.append(
-            (dot_name, dot_size, approach, orbit_angle, orbit_radius, normalized_Velocity, orbit_tilt, z))
+            (dot_name, dot_size, approach, orbit_angle, orbit_radius, normalized_Velocity, orbit_tilt, z, velocity))
 
 console_logs = deque([
     "[SYSTEM] SYSTEM BOOT SUCCESSFUL...",
@@ -184,9 +189,24 @@ while True:
                 if orbitline_Toggle == False:
                     orbitline_Toggle = True
                     print(orbitline_Toggle)
+                    console_logs.append(f"[TRACKING] ORBIT LINES ENABLED")
                 else:
                     orbitline_Toggle = False
                     print(orbitline_Toggle)
+                    console_logs.append(f"[TRACKING] ORBIT LINES DISABLED")
+            elif btn_pause.collidepoint(mouse_pos):
+                time_speed = 0
+                console_logs.append(f"[SYSTEMS] SYSTEM PAUSED")
+            elif btn_play.collidepoint(mouse_pos):
+                time_speed = 1
+                console_logs.append(f"[SYSTEMS] SYSTEM RESUMED")
+            elif btn_info.collidepoint(mouse_pos):
+                if quickInfotoggle == True:
+                    quickInfotoggle = False
+                    console_logs.append(f"[INFO] QUICK INFO DEACTIVATED")
+                else:
+                    quickInfotoggle = True
+                    console_logs.append(f"[INFO] QUICK INFO ACTIVATED")
             elif btn_export.collidepoint(mouse_pos):
                 if selected_Asteroid is not None:
 
@@ -216,7 +236,7 @@ while True:
             else:
                 hit_detected = False
                 for i, (dot_name, dot_size, approach, orbit_angle, orbit_radius, normalized_Velocity, orbit_tilt,
-                        z) in enumerate(asteroidsPoints):
+                        z, velocity) in enumerate(asteroidsPoints):
                     check_x = earth_x + math.cos(orbit_angle) * orbit_radius
                     check_y = earth_y + math.sin(orbit_angle) * orbit_radius * orbit_tilt / 8
                     distance_to_mouse = math.hypot(mouse_x - check_x, mouse_y - check_y)
@@ -234,7 +254,7 @@ while True:
                             
                         selected_Asteroid = {
                             "name": dot_name,
-                            "speed": normalized_Velocity * 30 + 5,
+                            "speed": velocity,
                             "radius": orbit_radius,
                             "tilt": orbit_tilt,
                             "size": dot_size,
@@ -256,13 +276,25 @@ while True:
     if random.random() < 0.01:
         console_logs.append(random.choice(generic_pool))
 
-    for i, (dot_name, dot_size, approach, orbit_angle, orbit_radius, normalized_Velocity, orbit_tilt, z) in enumerate(
+    for i, (dot_name, dot_size, approach, orbit_angle, orbit_radius, normalized_Velocity, orbit_tilt, z, velocity) in enumerate(
             asteroidsPoints):
         x = earth_x + math.cos(orbit_angle) * orbit_radius
         y = earth_y + math.sin(orbit_angle) * orbit_radius * orbit_tilt / 8
 
+        text_x = x+10
+        nametext_y = y+10
+        veloctext_y = y+20
+
         newangle = orbit_angle + (0.005 * normalized_Velocity * time_speed)
-        asteroidsPoints[i] = (dot_name, dot_size, approach, newangle, orbit_radius, normalized_Velocity, orbit_tilt, z)
+        asteroidsPoints[i] = (dot_name, dot_size, approach, newangle, orbit_radius, normalized_Velocity, orbit_tilt, z, velocity)
+
+        neo_Text = NEOfont.render(f"{dot_name}", True, (255, 255, 255))
+        velocneo_text = NEOfont.render(f"{velocity:.3f} KM/s", True, (255, 255, 255))
+
+        if quickInfotoggle == True:
+            screen.blit(neo_Text, (text_x, nametext_y))
+            screen.blit(velocneo_text, (text_x, veloctext_y))
+
 
         color = grey
         if normalized_Velocity > 0.6:
@@ -367,10 +399,17 @@ while True:
     pygame.draw.rect(screen, (0, 60, 150), btn_slow)
     pygame.draw.rect(screen, (0, 60, 150), btn_fast)
     pygame.draw.rect(screen, (0, 60, 150), btn_orbit)
+    pygame.draw.rect(screen, (0, 60, 150), btn_pause)
+    pygame.draw.rect(screen, (0, 60, 150), btn_play)    
+    pygame.draw.rect(screen, (0, 60, 150), btn_info)
 
     lbl_slow = LogFont.render(" WARP - ", True, (255, 255, 255))
+    lbl_play = LogFont.render("PLAY", True, (255, 255, 255))
+    lbl_pause = LogFont.render("PAUSE", True, (255, 255, 255))    
     lbl_fast = LogFont.render(" WARP + ", True, (255, 255, 255))
     screen.blit(lbl_slow, (795, 640))
+    screen.blit(lbl_play, (970, 700))
+    screen.blit(lbl_pause, (805, 700))
     screen.blit(lbl_fast, (955, 640))
 
     warp_status = font.render(f"SIMULATION TIME WARP VALUE: {time_speed}X", True, (0, 200, 255))
@@ -378,8 +417,8 @@ while True:
     screen.blit(warp_status, (760, 595))
     screen.blit(orbitline_ToggleButtonText, (1100, 640))
     
-
-
+    lbl_info = LogFont.render("TOGGLE INFO", True, (255, 255, 255))
+    screen.blit(lbl_info, (1105, 700))
 
 
     if selected_Asteroid is not None:
