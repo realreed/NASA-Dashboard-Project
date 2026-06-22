@@ -1,13 +1,16 @@
- import pygame
+import pygame
 import math
 import random
 import requests
 import time
-
+import os
 from collections import deque
 
+if not os.path.exists("TELEMETRY_DATA"):
+    os.makedirs("TELEMETRY_DATA")
+
 pygame.init()
-pygame.mixer.init
+pygame.mixer.init()
 terminal_hum = pygame.mixer.Sound("terminal_hum.flac")
 writing_hum = pygame.mixer.Sound("writing_hum.flac")
 click_effect = pygame.mixer.Sound("click.wav")
@@ -27,6 +30,7 @@ points = []
 asteroidsPoints = []
 selected_Asteroid = None
 orbitline_Toggle = False
+tracked = False
 time_speed = 1
 sweep_angle = 0
 earth_x = 370
@@ -66,9 +70,10 @@ Tracking_text = font.render(f"CURRENTLY TRACKING {total_asteroids} NEOS", True, 
 btn_slow = pygame.Rect(760, 630, 140, 40)
 btn_fast = pygame.Rect(920, 630, 140, 40)
 btn_orbit = pygame.Rect(1080, 630, 160, 40)
+btn_export = pygame.Rect(790, 400, 220, 50)
 
 
-pygame.draw.circle(reticle_surf, (255, 50, 50), (30, 30), 22, 1)
+pygame.draw.circle(reticle_surf, (255, 50, 50), (30, 30), 12, 1)
 
 pygame.draw.line(reticle_surf, (255, 50, 50), (30, 2), (30, 8), 2)
 pygame.draw.line(reticle_surf, (255, 50, 50), (30, 58), (30, 52), 2)
@@ -182,6 +187,32 @@ while True:
                 else:
                     orbitline_Toggle = False
                     print(orbitline_Toggle)
+            elif btn_export.collidepoint(mouse_pos):
+                if selected_Asteroid is not None:
+
+                    safe_name = selected_Asteroid['name'].replace("(", "").replace(")", "").replace(" ", "_")
+                    filename = f"TELEMETRY_DATA/{safe_name}_report.txt"
+
+                    try:
+                        with open(filename, "w") as file:
+                            file.write("==================================================\n")
+                            file.write("          NASA TARGET TELEMETRY REPORT            \n")
+                            file.write("==================================================\n\n")
+                            file.write(f"DESIGNATION:    {selected_Asteroid['name']}\n")
+                            file.write(f"SECTOR SPEED:   {selected_Asteroid['speed'] * time_speed:.2f} KM/S\n")
+                            file.write(f"ORBIT RADIUS:   {selected_Asteroid['radius']:.2f}\n")
+                            file.write(f"ECLIPTIC TILT:  {selected_Asteroid['tilt']:.2f}\n")
+                            file.write(f"EST. SIZE CAT:  {selected_Asteroid['size']}\n")
+                            file.write(f"ORBITAL ANGLE:  {selected_Asteroid['angle']:.2f}\n")
+                            file.write(f"Z-AXIS DEPTH:   {selected_Asteroid['depth']:.2f}\n")
+                            file.write(f"THREAT LEVEL:   {selected_Asteroid['danger']}\n\n")
+                            file.write("==================================================\n")
+                            file.write(f"REPORT GENERATED AT SYSTEM UPTIME: {int(time.time() - start_time)}s\n")
+                            file.write("STATUS: TELEMETRY EXPORTED SUCCESSFULLY.\n")
+
+                        console_logs.append(f"[SUCCESS] DATA EXPORTED TO {safe_name}_report.txt")
+                    except Exception as e:
+                        console_logs.append(f"[ERROR] FAILED TO WRITE FILE: {str(e)}")
             else:
                 hit_detected = False
                 for i, (dot_name, dot_size, approach, orbit_angle, orbit_radius, normalized_Velocity, orbit_tilt,
@@ -197,6 +228,10 @@ while True:
                         danger = "MEDIUM"
 
                     if distance_to_mouse < 12:
+
+                        if selected_Asteroid is None or selected_Asteroid["name"] != dot_name:
+                            console_logs.append(f"[TRACK] CURRENTLY TRACKING: {dot_name}, VELOCITY: {velocity:.2f} KM/S")
+                            
                         selected_Asteroid = {
                             "name": dot_name,
                             "speed": normalized_Velocity * 30 + 5,
@@ -248,13 +283,23 @@ while True:
             orbit_x = int(earth_x - orbit_radius)
             orbit_y = int(earth_y - (orbit_h / 2))
 
+            displaydot_x = 1360
+            displaydot_y = 200
+
             pygame.draw.line(screen, (255, 50, 50), (earth_x, earth_y), (int(x), int(y)), 2)
             pygame.draw.ellipse(screen, (255, 50, 50), (orbit_x, orbit_y, orbit_w, orbit_h), 3)
+            pygame.draw.rect(screen, (0, 60, 150), btn_export)
+            pygame.draw.rect(screen, (0, 100, 255), (1165, 75, 400, 280), 2)
+            pygame.draw.circle(screen, color, center=(displaydot_x, displaydot_y), radius=dot_size*6)
 
+            export_Text = LogFont.render("EXPORT TELEMETRY DATA", True, (255, 255, 255))
+            screen.blit(export_Text, (805, 415))
+            
             rotated_surf = pygame.transform.rotate(reticle_surf, angle * 500)
             reticle_rect = rotated_surf.get_rect()
             reticle_rect.center = (int(x), int(y))
             screen.blit(rotated_surf, reticle_rect.topleft)
+
 
         if random.random() < 0.00005:
             actual_vel = normalized_Velocity * 30 + 5
